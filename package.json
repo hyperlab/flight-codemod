@@ -1,0 +1,14 @@
+{
+  "name": "flight-codemod",
+  "version": "1.0.0",
+  "description": "Codemods for Flight releases",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Hyperlab",
+  "license": "ISC",
+  "dependencies": {
+    "jscodeshift": "^0.6.4"
+  }
+}
