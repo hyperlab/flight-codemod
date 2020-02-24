@@ -12,3 +12,4 @@ defineTest(
   "styled-css-cx-emotion-to-linaria"
 );
 defineTest(__dirname, "emotion-to-linaria", null, "styled-arrow-fn-theme");
+defineTest(__dirname, "emotion-to-linaria", null, "ui-utils-theme");

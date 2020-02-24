@@ -2,8 +2,9 @@ export default function transformer(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
-  replaceStyledImport(root, j);
+  replaceUiThemeImport(root, j);
   const { errors: replaceThemeErrors } = replaceTheme(root, j);
+  replaceStyledImport(root, j);
 
   const errors = [...replaceThemeErrors];
   if (errors.length > 0) {
@@ -11,6 +12,55 @@ export default function transformer(file, api) {
   }
 
   return root.toSource({});
+}
+
+function replaceUiThemeImport(root, j) {
+  const fixedImport = fixImport();
+  if (!fixedImport) return;
+
+  replaceThemeFn();
+
+  function replaceThemeFn() {
+    const styledCalls = root.find(j.TaggedTemplateExpression, {
+      tag: { callee: { name: "styled" } }
+    });
+
+    if (!styledCalls.length > 0) {
+      return;
+    }
+
+    styledCalls.forEach(styled => {
+      const themeFns = j(styled).find(j.CallExpression, {
+        callee: { name: "theme" }
+      });
+
+      if (!themeFns.length > 0) return;
+
+      themeFns.forEach(themeFn => {
+        // args may have numbers i.e theme.colors.1 - convert to theme.colors[1]
+        const args = themeFn.node.arguments[0].value;
+        const bracketNotation = args.replace(
+          /\.(.+?)(?=\.|$)/g,
+          (m, s) => `[${s}]`
+        );
+
+        j(themeFn).replaceWith(`theme.${bracketNotation}`);
+      });
+    });
+  }
+
+  function fixImport() {
+    const utilThemeImport = root.find(j.ImportDeclaration, {
+      source: { value: "@jetshop/ui/utils/theme" }
+    });
+
+    if (utilThemeImport.length === 0) return false;
+
+    utilThemeImport.get().value.source.value = "Theme";
+    utilThemeImport.find(j.Identifier).get().value.name = "{ theme }";
+
+    return true;
+  }
 }
 
 function replaceTheme(root, j) {
