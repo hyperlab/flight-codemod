@@ -34,24 +34,18 @@ function replaceTheme(root, j) {
           const firstParam = path.node.params[0];
 
           if (!firstParam.properties) {
-            // props.theme.below.xl syntax
-            const hasTheme =
-              j(path.node.body)
-                .find(j.MemberExpression)
-                .find(j.MemberExpression)
-                .find(j.Identifier, { name: "theme" }).length > 0;
-
-            if (hasTheme) {
-              errors.push(
-                "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`"
-              );
-              return true;
-            }
+            const propsDotThemeWarning = checkForPropsDotThemeUsage(j, path);
+            if (propsDotThemeWarning) errors.push(propsDotThemeWarning);
 
             return false;
           }
 
-          return firstParam.properties[0].value.name === "theme";
+          if (firstParam.properties[0].value.name === "theme") return true;
+
+          const inlineCSSWarning = checkForInlineCSS(j, path);
+          if (inlineCSSWarning) errors.push(inlineCSSWarning);
+
+          return false;
         });
 
       fns.forEach(fn => {
@@ -71,6 +65,37 @@ function replaceTheme(root, j) {
   }
 
   return { errors };
+}
+
+function checkForPropsDotThemeUsage(j, path) {
+  // props.theme.below.xl syntax
+  const hasTheme =
+    j(path.node.body)
+      .find(j.MemberExpression)
+      .find(j.Identifier, { name: "theme" }).length > 0;
+
+  if (hasTheme) {
+    return "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`";
+  }
+}
+
+/**
+ * uses inline css
+ *
+ * @example
+ * ${({ root })} =>
+ *   root && css`color: red`
+ *
+ * This is impossible to codemod
+ */
+
+function checkForInlineCSS(j, path) {
+  const hasInlineCSS =
+    j(path.node).find(j.Identifier, { name: "css" }).length > 0;
+
+  if (hasInlineCSS) {
+    return "using `css` inside a styled template literal is no longer supported. Try using a regular className or consider inline styles";
+  }
 }
 
 function replaceStyledImport(root, j) {
