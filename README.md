@@ -1,7 +1,7 @@
-# Flight codemods
+# flight-codemod
 
-This is a WIP.
+This repo contains codemods to assist with migrating between Flight versions.
 
-To run a codemod: check out this repo and run
+## Usage
 
-`yarn mod <path to codemod> <path to files>`
+`yarn mod transforms/<the-transform> <path-to-your-flight-shop/src>`
