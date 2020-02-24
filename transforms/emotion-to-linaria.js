@@ -39,10 +39,10 @@ function replaceUiThemeImport(root, j) {
       themeFns.forEach(themeFn => {
         // args may have numbers i.e theme.colors.1 - convert to theme.colors[1]
         const args = themeFn.node.arguments[0].value;
-        const bracketNotation = args.replace(
-          /\.(.+?)(?=\.|$)/g,
-          (m, s) => `[${s}]`
-        );
+        const bracketNotation = args.replace(/\.(.+?)(?=\.|$)/g, (m, s) => {
+          const isString = isNaN(s);
+          return isString ? `.${s}` : `[${s}]`;
+        });
 
         j(themeFn).replaceWith(`theme.${bracketNotation}`);
       });
