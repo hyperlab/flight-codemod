@@ -5,13 +5,13 @@ export default function transformer(file, api) {
   replaceStyledImport(root, j);
   replaceTheme(root, j);
 
-  return root.toSource({
-    quote: "single",
-    trailingComma: true
-  });
+  return root.toSource({});
 }
 
 function replaceTheme(root, j) {
+  const allImports = root.find(j.ImportDeclaration);
+  const LAST_IMPORT = allImports.at(allImports.length - 1);
+
   let found = false;
   root.find(j.TaggedTemplateExpression).forEach(imp => {
     const ids = j(imp.node)
@@ -28,6 +28,12 @@ function replaceTheme(root, j) {
   });
 
   if (found) {
+    const themeImport = j.importDeclaration(
+      [j.importSpecifier(j.identifier("theme"))],
+      j.stringLiteral("Theme")
+    );
+
+    LAST_IMPORT.insertAfter(themeImport);
   }
 }
 
@@ -56,6 +62,7 @@ function replaceStyledImport(root, j) {
     if (node.specifiers[0].local.name === "styled") {
       node.specifiers[0].local.name = "{ styled }";
       node.source.value = "linaria/react";
+      return;
     }
 
     // import { css } from 'react-emotion'
