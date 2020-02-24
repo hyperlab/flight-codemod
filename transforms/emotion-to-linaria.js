@@ -19,7 +19,12 @@ function replaceTheme(root, j) {
       .filter(path => path.node.name === "styled");
 
     ids.forEach(id => {
-      const fns = j(id.parent.parent).find(j.ArrowFunctionExpression);
+      const fns = j(id.parent.parent)
+        .find(j.ArrowFunctionExpression)
+        .filter(path => {
+          return path.node.params[0].properties[0].value.name === "theme";
+        });
+
       fns.forEach(fn => {
         j(fn).replaceWith(fn.node.body);
         found = true;
