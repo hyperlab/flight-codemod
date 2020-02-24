@@ -3,7 +3,12 @@ export default function transformer(file, api) {
   const root = j(file.source);
 
   replaceStyledImport(root, j);
-  replaceTheme(root, j);
+  const { errors: replaceThemeErrors } = replaceTheme(root, j);
+
+  const errors = [...replaceThemeErrors];
+  if (errors.length > 0) {
+    console.warn(`Manual edits needed in ${file.path}:`, errors);
+  }
 
   return root.toSource({});
 }
@@ -13,6 +18,9 @@ function replaceTheme(root, j) {
   const LAST_IMPORT = allImports.at(allImports.length - 1);
 
   let found = false;
+
+  let errors = [];
+
   root.find(j.TaggedTemplateExpression).forEach(imp => {
     const ids = j(imp.node)
       .find(j.Identifier)
@@ -22,7 +30,28 @@ function replaceTheme(root, j) {
       const fns = j(id.parent.parent)
         .find(j.ArrowFunctionExpression)
         .filter(path => {
-          return path.node.params[0].properties[0].value.name === "theme";
+          // console.log(path.node);
+          const firstParam = path.node.params[0];
+
+          if (!firstParam.properties) {
+            // props.theme.below.xl syntax
+            const hasTheme =
+              j(path.node.body)
+                .find(j.MemberExpression)
+                .find(j.MemberExpression)
+                .find(j.Identifier, { name: "theme" }).length > 0;
+
+            if (hasTheme) {
+              errors.push(
+                "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`"
+              );
+              return true;
+            }
+
+            return false;
+          }
+
+          return firstParam.properties[0].value.name === "theme";
         });
 
       fns.forEach(fn => {
@@ -40,6 +69,8 @@ function replaceTheme(root, j) {
 
     LAST_IMPORT.insertAfter(themeImport);
   }
+
+  return { errors };
 }
 
 function replaceStyledImport(root, j) {
