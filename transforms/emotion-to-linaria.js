@@ -161,7 +161,7 @@ function replaceClassname(root, j) {
     if (expressions.length > 0) {
       expressions.forEach(expression => {
         errors.push({
-          msg: `A className was used with a css template literal inside which uses interpolation. This cannot be polyfilled. Please fix manually.`,
+          msg: `A CSS template literal with an interpolated expression was used inside a className prop. This cannot be polyfilled. Please fix manually.`,
           line: expression.loc.start.line
         });
       });
@@ -170,7 +170,19 @@ function replaceClassname(root, j) {
 
     const styles = cssLiteralToStyleObject(rawStyles.join(""));
 
-    const objExp = styleArrayToObjectExpression(styles, j);
+    let objExp;
+    try {
+      objExp = styleArrayToObjectExpression(styles, j);
+    } catch (err) {
+      const line = cnProp.parent.get().value.loc.start.line;
+
+      errors.push({
+        line,
+        msg:
+          "CSS selectors used inside the className prop. This cannot be polyfilled. We recommend moving these styles out and assigning them to a variable using the `css` fn from Linaria. Then you can assign that variable to the className prop"
+      });
+      return;
+    }
 
     j(templateExp.get().parent).replaceWith(objExp);
 
@@ -181,6 +193,12 @@ function replaceClassname(root, j) {
 }
 
 function styleArrayToObjectExpression(styles, j) {
+  const hasNestedStyles = styles.some(style => style.indexOf("{") > 0);
+
+  if (hasNestedStyles) {
+    throw new Error("nestedStyles");
+  }
+
   const objExp = styles
     .map(style => {
       const key = style.match(/(?<key>\w+):/).groups["key"];
