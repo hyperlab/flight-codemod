@@ -1,15 +1,24 @@
+import { magenta, red } from "chalk";
+
 export default function transformer(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
   replaceCssPropSimple(root, j);
+  const replaceClassNameErrors = replaceClassname(root, j) || [];
   replaceUiThemeImport(root, j);
-  const { errors: replaceThemeErrors } = replaceTheme(root, j);
+  const replaceThemeErrors = replaceTheme(root, j);
   replaceStyledImport(root, j);
 
-  const errors = [...replaceThemeErrors];
+  const errors = [...replaceThemeErrors, ...replaceClassNameErrors];
   if (errors.length > 0) {
-    console.warn(`Manual edits needed in ${file.path}:`, errors);
+    errors.map(err => {
+      console.warn(
+        `Manual edits needed in ${magenta(file.path)} on line ${magenta(
+          err.line
+        )}\n - ${red(err.msg)}`
+      );
+    });
   }
 
   return root.toSource({});
@@ -47,9 +56,21 @@ function replaceCssPropSimple(root, j) {
 function replaceCssPropTemplateLiteral(cssProp, j) {
   const template = j(cssProp).find(j.TemplateElement);
 
-  let styles = template.get().value.value.raw;
+  const raw = template.get().value.value.raw;
 
-  styles = styles
+  const styles = cssLiteralToStyleObject(raw);
+
+  const templateExp = j(cssProp).find(j.TaggedTemplateExpression);
+
+  j(templateExp.get()).replaceWith(`{ ${styles.join(", ")} }`);
+
+  cssProp.node.name = "style";
+
+  return;
+}
+
+function cssLiteralToStyleObject(rawStyles) {
+  let styles = rawStyles
     .split("\n")
     .map(val => val.trim())
     .filter(Boolean);
@@ -67,15 +88,7 @@ function replaceCssPropTemplateLiteral(cssProp, j) {
     })
   );
 
-  styles = styles.join(", ");
-
-  const templateExp = j(cssProp).find(j.TaggedTemplateExpression);
-
-  j(templateExp.get()).replaceWith(`{ ${styles} }`);
-
-  cssProp.node.name = "style";
-
-  return;
+  return styles;
 }
 
 /**
@@ -102,6 +115,56 @@ function replaceCssPropLogicalExpression(cssProp, j) {
   j(exp).replaceWith(conditional);
 
   return;
+}
+
+function replaceClassname(root, j) {
+  const classNameProps = root.find(j.JSXIdentifier, { name: "className" });
+  if (classNameProps.length === 0) return;
+  const errors = [];
+
+  classNameProps.forEach(cnProp => {
+    const templateExp = j(cnProp.parent).find(j.Identifier, { name: "css" });
+
+    if (templateExp.length === 0) return;
+
+    const rawStyles = [];
+
+    j(templateExp.get().parent)
+      .find(j.TemplateElement)
+      .forEach(el => {
+        rawStyles.push(el.get().value.value.raw);
+      });
+
+    const expressions = j(templateExp.get().parent)
+      .find(j.TemplateLiteral)
+      .get().node.expressions;
+
+    if (expressions.length > 0) {
+      expressions.forEach(expression => {
+        errors.push({
+          msg: `A className was used with a css template literal inside which uses interpolation. This cannot be polyfilled. Please fix manually.`,
+          line: expression.loc.start.line
+        });
+      });
+      return;
+    }
+
+    const styles = cssLiteralToStyleObject(rawStyles.join(""));
+
+    const objExp = styles
+      .map(style => {
+        const key = style.match(/(?<key>\w+):/).groups["key"];
+        const val = style.match(/: "(?<val>.*)"/).groups["val"];
+        return j.property("init", j.identifier(key), j.literal(val));
+      })
+      .filter(Boolean);
+
+    j(templateExp.get().parent).replaceWith(j.objectExpression(objExp));
+
+    cnProp.node.name = "style";
+  });
+
+  return errors;
 }
 
 function replaceUiThemeImport(root, j) {
@@ -204,18 +267,23 @@ function replaceTheme(root, j) {
     LAST_IMPORT.insertAfter(themeImport);
   }
 
-  return { errors };
+  return errors;
 }
 
 function checkForPropsDotThemeUsage(j, path) {
   // props.theme.below.xl syntax
-  const hasTheme =
-    j(path.node.body)
-      .find(j.MemberExpression)
-      .find(j.Identifier, { name: "theme" }).length > 0;
+  const theme = j(path)
+    .find(j.MemberExpression)
+    .find(j.Identifier, { name: "theme" });
+
+  const hasTheme = theme.length > 0;
 
   if (hasTheme) {
-    return "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`";
+    return {
+      line: theme.get().value.loc.start.line,
+      msg:
+        "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`"
+    };
   }
 }
 
@@ -229,11 +297,15 @@ function checkForPropsDotThemeUsage(j, path) {
  * This is impossible to codemod
  */
 function checkForInlineCSS(j, path) {
-  const hasInlineCSS =
-    j(path.node).find(j.Identifier, { name: "css" }).length > 0;
+  const inlineCSS = j(path.node).find(j.Identifier, { name: "css" });
+  const hasInlineCSS = inlineCSS.length > 0;
 
   if (hasInlineCSS) {
-    return "using `css` inside a styled template literal is no longer supported. Try using a regular className or consider inline styles";
+    return {
+      line: path.node.loc.start.line,
+      msg:
+        "using `css` inside a styled template literal is no longer supported. Try using a regular className or consider inline styles"
+    };
   }
 }
 
