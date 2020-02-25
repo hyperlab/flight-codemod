@@ -117,6 +117,18 @@ function replaceCssPropLogicalExpression(cssProp, j) {
   return;
 }
 
+function replaceTernaryCssLiteral(prop, j) {
+  const tempExp = j(prop.parent).find(j.TaggedTemplateExpression);
+
+  if (tempExp.length === 0) return;
+
+  const raw = tempExp.find(j.TemplateElement).get().value.value.raw;
+  const styles = cssLiteralToStyleObject(raw);
+  const objExp = styleArrayToObjectExpression(styles, j);
+
+  tempExp.replaceWith(objExp);
+}
+
 function replaceClassname(root, j) {
   const classNameProps = root.find(j.JSXIdentifier, { name: "className" });
   if (classNameProps.length === 0) return;
@@ -124,6 +136,13 @@ function replaceClassname(root, j) {
 
   classNameProps.forEach(cnProp => {
     const templateExp = j(cnProp.parent).find(j.Identifier, { name: "css" });
+
+    const hasLogicalExp = j(cnProp.parent).find(j.LogicalExpression).length > 0;
+
+    if (hasLogicalExp) {
+      replaceCssPropLogicalExpression(cnProp, j);
+      replaceTernaryCssLiteral(cnProp, j);
+    }
 
     if (templateExp.length === 0) return;
 
@@ -151,20 +170,26 @@ function replaceClassname(root, j) {
 
     const styles = cssLiteralToStyleObject(rawStyles.join(""));
 
-    const objExp = styles
-      .map(style => {
-        const key = style.match(/(?<key>\w+):/).groups["key"];
-        const val = style.match(/: "(?<val>.*)"/).groups["val"];
-        return j.property("init", j.identifier(key), j.literal(val));
-      })
-      .filter(Boolean);
+    const objExp = styleArrayToObjectExpression(styles, j);
 
-    j(templateExp.get().parent).replaceWith(j.objectExpression(objExp));
+    j(templateExp.get().parent).replaceWith(objExp);
 
     cnProp.node.name = "style";
   });
 
   return errors;
+}
+
+function styleArrayToObjectExpression(styles, j) {
+  const objExp = styles
+    .map(style => {
+      const key = style.match(/(?<key>\w+):/).groups["key"];
+      const val = style.match(/: "(?<val>.*)"/).groups["val"];
+      return j.property("init", j.identifier(key), j.literal(val));
+    })
+    .filter(Boolean);
+
+  return j.objectExpression(objExp);
 }
 
 function replaceUiThemeImport(root, j) {

@@ -27,3 +27,9 @@ defineTest(
   "css-prop-logical-expression-to-style"
 );
 defineTest(__dirname, "emotion-to-linaria", null, "classname-css-literal");
+defineTest(
+  __dirname,
+  "emotion-to-linaria",
+  null,
+  "classname-logical-expression-to-style"
+);
