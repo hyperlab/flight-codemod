@@ -23,10 +23,85 @@ function replaceCssPropSimple(root, j) {
     // check for complex internals
     const hasTemplateLiteral =
       j(cssProp.parent).find(j.TaggedTemplateExpression).length > 0;
-    if (hasTemplateLiteral) return;
+    if (hasTemplateLiteral) {
+      replaceCssPropTemplateLiteral(cssProp.parent, j);
+      return;
+    }
+
+    const hasLogicalExp =
+      j(cssProp.parent).find(j.LogicalExpression).length > 0;
+    if (hasLogicalExp) {
+      replaceCssPropLogicalExpression(cssProp, j);
+    }
 
     cssProp.node.name = "style";
   });
+}
+
+/**
+ * Replaces
+ * css={css`color: red`}
+ * with
+ * style={{ color: red }}
+ */
+function replaceCssPropTemplateLiteral(cssProp, j) {
+  const template = j(cssProp).find(j.TemplateElement);
+
+  let styles = template.get().value.value.raw;
+
+  styles = styles
+    .split("\n")
+    .map(val => val.trim())
+    .filter(Boolean);
+
+  // replace semicolons
+  styles = styles.map(style => style.replace(/;/gm, ""));
+
+  // add quotation marks
+  styles = styles.map(style => style.replace(/: ([a-z0-9\s]+)/gm, `: "$1"`));
+
+  // camelize
+  styles = styles.map(style =>
+    style.replace(/-([a-z])/g, function(g) {
+      return g[1].toUpperCase();
+    })
+  );
+
+  styles = styles.join(", ");
+
+  const templateExp = j(cssProp).find(j.TaggedTemplateExpression);
+
+  j(templateExp.get()).replaceWith(`{ ${styles} }`);
+
+  cssProp.node.name = "style";
+
+  return;
+}
+
+/**
+ * Replaces
+ * css={really && { color: 'red' }}
+ * with
+ * style={really ? { color: 'red' } : null}
+ */
+function replaceCssPropLogicalExpression(cssProp, j) {
+  const exp = j(cssProp.parent)
+    .find(j.LogicalExpression)
+    .get();
+
+  if (exp.node.operator !== "&&") {
+    // only handling && operators
+    return;
+  }
+
+  const right = exp.node.right;
+  const left = exp.node.left;
+
+  const conditional = j.conditionalExpression(left, right, j.literal(null));
+
+  j(exp).replaceWith(conditional);
+
+  return;
 }
 
 function replaceUiThemeImport(root, j) {
