@@ -13,3 +13,4 @@ defineTest(
 );
 defineTest(__dirname, "emotion-to-linaria", null, "styled-arrow-fn-theme");
 defineTest(__dirname, "emotion-to-linaria", null, "ui-utils-theme");
+defineTest(__dirname, "emotion-to-linaria", null, "css-prop-to-style");

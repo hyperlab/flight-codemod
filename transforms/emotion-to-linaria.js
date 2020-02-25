@@ -2,6 +2,7 @@ export default function transformer(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
+  replaceCssPropSimple(root, j);
   replaceUiThemeImport(root, j);
   const { errors: replaceThemeErrors } = replaceTheme(root, j);
   replaceStyledImport(root, j);
@@ -12,6 +13,20 @@ export default function transformer(file, api) {
   }
 
   return root.toSource({});
+}
+
+function replaceCssPropSimple(root, j) {
+  const cssProps = root.find(j.JSXIdentifier, { name: "css" });
+  if (!cssProps.length > 0) return;
+
+  cssProps.forEach(cssProp => {
+    // check for complex internals
+    const hasTemplateLiteral =
+      j(cssProp.parent).find(j.TaggedTemplateExpression).length > 0;
+    if (hasTemplateLiteral) return;
+
+    cssProp.node.name = "style";
+  });
 }
 
 function replaceUiThemeImport(root, j) {
@@ -138,7 +153,6 @@ function checkForPropsDotThemeUsage(j, path) {
  *
  * This is impossible to codemod
  */
-
 function checkForInlineCSS(j, path) {
   const hasInlineCSS =
     j(path.node).find(j.Identifier, { name: "css" }).length > 0;
