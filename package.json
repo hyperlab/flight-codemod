@@ -4,11 +4,21 @@
   "description": "Codemods for Flight releases",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "mod": "jscodeshift -t"
   },
   "author": "Hyperlab",
   "license": "ISC",
   "dependencies": {
     "jscodeshift": "^0.6.4"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.8.4",
+    "@babel/plugin-proposal-object-rest-spread": "^7.8.3",
+    "@babel/preset-env": "^7.8.4",
+    "babel-jest": "^25.1.0",
+    "chalk": "^3.0.0",
+    "jest": "^25.1.0"
   }
 }
