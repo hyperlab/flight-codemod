@@ -356,7 +356,11 @@ function replaceStyledImport(root, j) {
   root.find(j.ImportDeclaration).forEach(imp => {
     const { node } = imp;
 
-    if (node.source.value !== "react-emotion") {
+    // Import may be react-emotion or just emotion
+    if (
+      node.source.value !== "react-emotion" &&
+      node.source.value !== "emotion"
+    ) {
       return;
     }
 

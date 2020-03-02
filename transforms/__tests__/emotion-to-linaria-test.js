@@ -33,3 +33,9 @@ defineTest(
   null,
   "classname-logical-expression-to-style"
 );
+defineTest(
+  __dirname,
+  "emotion-to-linaria",
+  null,
+  "css-emotion-core-to-linaria"
+);
