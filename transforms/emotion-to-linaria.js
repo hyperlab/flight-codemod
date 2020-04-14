@@ -1,4 +1,5 @@
 import { magenta, red } from "chalk";
+import nodePath from "path";
 
 export default function transformer(file, api) {
   const j = api.jscodeshift;
@@ -6,13 +7,13 @@ export default function transformer(file, api) {
 
   replaceCssPropSimple(root, j);
   const replaceClassNameErrors = replaceClassname(root, j) || [];
-  replaceUiThemeImport(root, j);
-  const replaceThemeErrors = replaceTheme(root, j);
+  replaceUiThemeImport(root, j, file.path);
+  const replaceThemeErrors = replaceTheme(root, j, file.path);
   replaceStyledImport(root, j);
 
   const errors = [...replaceThemeErrors, ...replaceClassNameErrors];
   if (errors.length > 0) {
-    errors.map(err => {
+    errors.map((err) => {
       console.warn(
         `Manual edits needed in ${magenta(file.path)} on line ${magenta(
           err.line
@@ -28,7 +29,7 @@ function replaceCssPropSimple(root, j) {
   const cssProps = root.find(j.JSXIdentifier, { name: "css" });
   if (!cssProps.length > 0) return;
 
-  cssProps.forEach(cssProp => {
+  cssProps.forEach((cssProp) => {
     // check for complex internals
     const hasTemplateLiteral =
       j(cssProp.parent).find(j.TaggedTemplateExpression).length > 0;
@@ -72,17 +73,17 @@ function replaceCssPropTemplateLiteral(cssProp, j) {
 function cssLiteralToStyleObject(rawStyles) {
   let styles = rawStyles
     .split("\n")
-    .map(val => val.trim())
+    .map((val) => val.trim())
     .filter(Boolean);
 
   // replace semicolons
-  styles = styles.map(style => style.replace(/;/gm, ""));
+  styles = styles.map((style) => style.replace(/;/gm, ""));
 
   // add quotation marks
-  styles = styles.map(style => style.replace(/: ([a-z0-9\s]+)/gm, `: "$1"`));
+  styles = styles.map((style) => style.replace(/: ([a-z0-9\s]+)/gm, `: "$1"`));
 
   // camelize
-  styles = styles.map(style =>
+  styles = styles.map((style) =>
     style.replace(/-([a-z])/g, function(g) {
       return g[1].toUpperCase();
     })
@@ -134,7 +135,7 @@ function replaceClassname(root, j) {
   if (classNameProps.length === 0) return;
   const errors = [];
 
-  classNameProps.forEach(cnProp => {
+  classNameProps.forEach((cnProp) => {
     const templateExp = j(cnProp.parent).find(j.Identifier, { name: "css" });
 
     const hasLogicalExp = j(cnProp.parent).find(j.LogicalExpression).length > 0;
@@ -150,7 +151,7 @@ function replaceClassname(root, j) {
 
     j(templateExp.get().parent)
       .find(j.TemplateElement)
-      .forEach(el => {
+      .forEach((el) => {
         rawStyles.push(el.get().value.value.raw);
       });
 
@@ -159,10 +160,11 @@ function replaceClassname(root, j) {
       .get().node.expressions;
 
     if (expressions.length > 0) {
-      expressions.forEach(expression => {
+      expressions.forEach((expression) => {
         errors.push({
-          msg: `A CSS template literal with an interpolated expression was used inside a className prop. This cannot be polyfilled. Please fix manually.`,
-          line: expression.loc.start.line
+          msg:
+            "A CSS template literal with an interpolated expression was used inside a className prop. This cannot be polyfilled. Please fix manually - consider using a `style` prop instead.",
+          line: expression.loc.start.line,
         });
       });
       return;
@@ -179,7 +181,7 @@ function replaceClassname(root, j) {
       errors.push({
         line,
         msg:
-          "CSS selectors used inside the className prop. This cannot be polyfilled. We recommend moving these styles out and assigning them to a variable using the `css` fn from Linaria. Then you can assign that variable to the className prop"
+          "CSS selectors used inside the className prop. This cannot be polyfilled. We recommend moving these styles out and assigning them to a variable using the `css` fn from Linaria. Then you can assign that variable to the className prop",
       });
       return;
     }
@@ -193,14 +195,14 @@ function replaceClassname(root, j) {
 }
 
 function styleArrayToObjectExpression(styles, j) {
-  const hasNestedStyles = styles.some(style => style.indexOf("{") > 0);
+  const hasNestedStyles = styles.some((style) => style.indexOf("{") > 0);
 
   if (hasNestedStyles) {
     throw new Error("nestedStyles");
   }
 
   const objExp = styles
-    .map(style => {
+    .map((style) => {
       const key = style.match(/(?<key>\w+):/).groups["key"];
       const val = style.match(/: "(?<val>.*)"/).groups["val"];
       return j.property("init", j.identifier(key), j.literal(val));
@@ -210,32 +212,32 @@ function styleArrayToObjectExpression(styles, j) {
   return j.objectExpression(objExp);
 }
 
-function replaceUiThemeImport(root, j) {
-  const fixedImport = fixImport();
+function replaceUiThemeImport(root, j, path) {
+  const fixedImport = fixImport(path);
   if (!fixedImport) return;
 
   replaceThemeFn();
 
   function replaceThemeFn() {
     const styledCalls = root.find(j.TaggedTemplateExpression, {
-      tag: { callee: { name: "styled" } }
+      tag: { callee: { name: "styled" } },
     });
 
     if (!styledCalls.length > 0) {
       return;
     }
 
-    styledCalls.forEach(styled => {
+    styledCalls.forEach((styled) => {
       const themeFns = j(styled).find(j.CallExpression, {
-        callee: { name: "theme" }
+        callee: { name: "theme" },
       });
 
       if (!themeFns.length > 0) return;
 
-      themeFns.forEach(themeFn => {
+      themeFns.forEach((themeFn) => {
         // args may have numbers i.e theme.colors.1 - convert to theme.colors[1]
         const args = themeFn.node.arguments[0].value;
-        const bracketNotation = args.replace(/\.(.+?)(?=\.|$)/g, (m, s) => {
+        const bracketNotation = args.replace(/\.(.+?)(?=\.|$)/g, (_, s) => {
           const isString = isNaN(s);
           return isString ? `.${s}` : `[${s}]`;
         });
@@ -245,21 +247,35 @@ function replaceUiThemeImport(root, j) {
     });
   }
 
-  function fixImport() {
+  function fixImport(path) {
     const utilThemeImport = root.find(j.ImportDeclaration, {
-      source: { value: "@jetshop/ui/utils/theme" }
+      source: { value: "@jetshop/ui/utils/theme" },
     });
 
     if (utilThemeImport.length === 0) return false;
 
-    utilThemeImport.get().value.source.value = "Theme";
+    utilThemeImport.get().value.source.value = getRelativeThemePath(path);
     utilThemeImport.find(j.Identifier).get().value.name = "{ theme }";
 
     return true;
   }
 }
 
-function replaceTheme(root, j) {
+// get the theme path relative to the current file path
+function getRelativeThemePath(path) {
+  const targetPath = "/src/components/Theme";
+  // Get the directory path to the file being processed, relative to /src/
+  const currentPath = ("/src/" + path.split("/src/")[1]).replace(
+    /\/[^\/]+\.([^\/]+)+$/g,
+    "/"
+  );
+
+  const relativePath = nodePath.relative(currentPath, targetPath);
+
+  return relativePath || "Theme";
+}
+
+function replaceTheme(root, j, path) {
   const allImports = root.find(j.ImportDeclaration);
   const LAST_IMPORT = allImports.at(allImports.length - 1);
 
@@ -267,15 +283,15 @@ function replaceTheme(root, j) {
 
   let errors = [];
 
-  root.find(j.TaggedTemplateExpression).forEach(imp => {
+  root.find(j.TaggedTemplateExpression).forEach((imp) => {
     const ids = j(imp.node)
       .find(j.Identifier)
-      .filter(path => path.node.name === "styled");
+      .filter((path) => path.node.name === "styled");
 
-    ids.forEach(id => {
+    ids.forEach((id) => {
       const fns = j(id.parent.parent)
         .find(j.ArrowFunctionExpression)
-        .filter(path => {
+        .filter((path) => {
           // console.log(path.node);
           const firstParam = path.node.params[0];
 
@@ -294,7 +310,7 @@ function replaceTheme(root, j) {
           return false;
         });
 
-      fns.forEach(fn => {
+      fns.forEach((fn) => {
         j(fn).replaceWith(fn.node.body);
         found = true;
       });
@@ -304,7 +320,7 @@ function replaceTheme(root, j) {
   if (found) {
     const themeImport = j.importDeclaration(
       [j.importSpecifier(j.identifier("theme"))],
-      j.stringLiteral("Theme")
+      j.stringLiteral(getRelativeThemePath(path))
     );
 
     LAST_IMPORT.insertAfter(themeImport);
@@ -325,7 +341,7 @@ function checkForPropsDotThemeUsage(j, path) {
     return {
       line: theme.get().value.loc.start.line,
       msg:
-        "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`"
+        "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`",
     };
   }
 }
@@ -347,13 +363,13 @@ function checkForInlineCSS(j, path) {
     return {
       line: path.node.loc.start.line,
       msg:
-        "using `css` inside a styled template literal is no longer supported. Try using a regular className or consider inline styles"
+        "using `css` inside a styled template literal is no longer supported. Try using a regular className or consider inline styles",
     };
   }
 }
 
 function replaceStyledImport(root, j) {
-  root.find(j.ImportDeclaration).forEach(imp => {
+  root.find(j.ImportDeclaration).forEach((imp) => {
     const { node } = imp;
 
     // Import may be react-emotion or just emotion
