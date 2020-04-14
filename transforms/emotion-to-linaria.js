@@ -142,7 +142,17 @@ function replaceClassname(root, j) {
 
     if (hasLogicalExp) {
       replaceCssPropLogicalExpression(cnProp, j);
-      replaceTernaryCssLiteral(cnProp, j);
+      try {
+        replaceTernaryCssLiteral(cnProp, j);
+      } catch {
+        const line = cnProp.parent.get().value.loc.start.line;
+
+        errors.push({
+          line,
+          msg:
+            "A CSS template literal with an interpolated expression was used inside a className prop. This cannot be polyfilled. Please fix manually - consider using a `style` prop instead.",
+        });
+      }
     }
 
     if (templateExp.length === 0) return;
