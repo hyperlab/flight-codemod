@@ -11,8 +11,8 @@
   "author": "Hyperlab",
   "license": "ISC",
   "dependencies": {
-    "jscodeshift": "^0.6.4",
     "execa": "^4.0.1",
+    "jscodeshift": "^0.6.4",
     "yargs": "^15.3.1"
   },
   "bin": {
