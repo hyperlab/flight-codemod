@@ -23,6 +23,12 @@ defineTest(
   null,
   "src/components/ui-utils-theme"
 );
+defineTest(
+  __dirname,
+  "emotion-to-linaria",
+  null,
+  "src/components/duplicate-theme"
+);
 defineTest(__dirname, "emotion-to-linaria", null, "css-prop-to-style");
 defineTest(
   __dirname,

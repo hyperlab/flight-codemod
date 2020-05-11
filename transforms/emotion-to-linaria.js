@@ -262,6 +262,7 @@ function replaceUiThemeImport(root, j, path) {
       source: { value: "@jetshop/ui/utils/theme" },
     });
 
+    if (themeImportExists(root, j)) return false;
     if (utilThemeImport.length === 0) return false;
 
     utilThemeImport.get().value.source.value = getRelativeThemePath(path);
@@ -269,6 +270,27 @@ function replaceUiThemeImport(root, j, path) {
 
     return true;
   }
+}
+
+function themeImportExists(root, j) {
+  const correctThemeImport = root
+    .find(j.ImportDeclaration)
+    .filter((nodePath) => {
+      const specifier = nodePath.value.specifiers[0];
+
+      if (
+        specifier.local &&
+        specifier.imported &&
+        specifier.local.name === "theme" &&
+        specifier.imported.name === "theme"
+      )
+        return true;
+      if (specifier.local && specifier.local.name === "{ theme }") return true;
+
+      return false;
+    });
+
+  return correctThemeImport.length > 0;
 }
 
 // get the theme path relative to the current file path
@@ -337,7 +359,9 @@ function replaceTheme(root, j, path) {
       j.stringLiteral(getRelativeThemePath(path))
     );
 
-    LAST_IMPORT.insertAfter(themeImport);
+    if (!themeImportExists(root, j)) {
+      LAST_IMPORT.insertAfter(themeImport);
+    }
   }
 
   return errors;
