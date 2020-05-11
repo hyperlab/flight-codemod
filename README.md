@@ -4,4 +4,4 @@ This repo contains codemods to assist with migrating between Flight versions.
 
 ## Usage
 
-`yarn mod transforms/<the-transform> <path-to-your-flight-shop/src>`
+`npx github:hyperlab/flight-codemod <the-transform> <path-to-your-shop/src>`
