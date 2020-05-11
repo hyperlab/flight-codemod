@@ -280,9 +280,13 @@ function getRelativeThemePath(path) {
     "/"
   );
 
-  const relativePath = nodePath.relative(currentPath, targetPath);
+  let relativePath = nodePath.relative(currentPath, targetPath);
 
-  return relativePath || "Theme";
+  if (relativePath === "Theme" || undefined) {
+    relativePath = "./Theme";
+  }
+
+  return relativePath;
 }
 
 function replaceTheme(root, j, path) {

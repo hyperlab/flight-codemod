@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { styled } from "linaria/react";
 
-import { theme } from "Theme";
+import { theme } from "./Theme";
 
 const Thing = styled("div")`
   background: pink;

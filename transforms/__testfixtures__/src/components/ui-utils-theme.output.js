@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { theme } from "Theme";
+import { theme } from "./Theme";
 
 const LinePrice = styled(Price)`
   margin-top: 1rem;
