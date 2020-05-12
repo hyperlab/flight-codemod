@@ -329,8 +329,13 @@ function replaceTheme(root, j, path) {
       const fns = j(id.parent.parent)
         .find(j.ArrowFunctionExpression)
         .filter((path) => {
-          // console.log(path.node);
           const firstParam = path.node.params[0];
+
+          const inlineCSSWarning = checkForInlineCSS(j, path);
+          if (inlineCSSWarning) {
+            errors.push(inlineCSSWarning);
+            return false;
+          }
 
           if (!firstParam.properties) {
             // If theme is anywhere in the function expression, process this node
@@ -345,9 +350,6 @@ function replaceTheme(root, j, path) {
           }
 
           if (firstParam.properties[0].value.name === "theme") return true;
-
-          const inlineCSSWarning = checkForInlineCSS(j, path);
-          if (inlineCSSWarning) errors.push(inlineCSSWarning);
 
           return false;
         });
