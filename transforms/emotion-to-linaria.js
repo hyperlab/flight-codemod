@@ -324,6 +324,7 @@ function replaceTheme(root, j, path) {
       .find(j.Identifier)
       .filter((path) => path.node.name === "styled");
 
+    // Replace ${({theme}) => theme.colors.red}
     ids.forEach((id) => {
       const fns = j(id.parent.parent)
         .find(j.ArrowFunctionExpression)
@@ -332,8 +333,13 @@ function replaceTheme(root, j, path) {
           const firstParam = path.node.params[0];
 
           if (!firstParam.properties) {
-            const propsDotThemeWarning = checkForPropsDotThemeUsage(j, path);
-            if (propsDotThemeWarning) errors.push(propsDotThemeWarning);
+            // If theme is anywhere in the function expression, process this node
+            if (
+              j(path)
+                .find(j.MemberExpression)
+                .find(j.Identifier, { name: "theme" }).length > 0
+            )
+              return true;
 
             return false;
           }
@@ -347,11 +353,42 @@ function replaceTheme(root, j, path) {
         });
 
       fns.forEach((fn) => {
-        j(fn).replaceWith(fn.node.body);
+        j(fn).replaceWith((path) => themify(path.node));
         found = true;
       });
     });
   });
+
+  function themify(node) {
+    // fixes the $(({theme}) => theme.color.red) case
+    if (!node.params[0].name) return node.body;
+
+    const paramName = node.params[0].name;
+    //p
+
+    const objects = removeParam(paramName, node.body.object, [
+      node.body.property,
+    ]);
+
+    const length = objects.length;
+
+    // fixes the ${p => p.theme.colors.red} case
+    return objects.slice(0, -2).reduceRight((prev, curr) => {
+      return j.memberExpression(prev, curr);
+    }, j.memberExpression(objects[length - 1], objects[length - 2]));
+  }
+
+  function removeParam(paramName, obj, objects) {
+    let collection = [...objects];
+
+    if (obj.object) {
+      if (obj.object.name === paramName) {
+        return [...collection, obj.property];
+      }
+      collection.push(obj.property);
+      return removeParam(paramName, obj.object, collection);
+    }
+  }
 
   if (found) {
     const themeImport = j.importDeclaration(
@@ -365,23 +402,6 @@ function replaceTheme(root, j, path) {
   }
 
   return errors;
-}
-
-function checkForPropsDotThemeUsage(j, path) {
-  // props.theme.below.xl syntax
-  const theme = j(path)
-    .find(j.MemberExpression)
-    .find(j.Identifier, { name: "theme" });
-
-  const hasTheme = theme.length > 0;
-
-  if (hasTheme) {
-    return {
-      line: theme.get().value.loc.start.line,
-      msg:
-        "`${props => props.theme.x} could not be replaced. Please replace manually with ${theme.x}`",
-    };
-  }
 }
 
 /**

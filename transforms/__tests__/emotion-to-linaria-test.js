@@ -55,3 +55,5 @@ defineTest(
   null,
   "css-emotion-core-to-linaria"
 );
+
+defineTest(__dirname, "emotion-to-linaria", null, "theme-fn-to-theme-obj");
