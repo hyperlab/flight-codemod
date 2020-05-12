@@ -10,6 +10,7 @@ export default function transformer(file, api) {
   replaceUiThemeImport(root, j, file.path);
   const replaceThemeErrors = replaceTheme(root, j, file.path);
   replaceStyledImport(root, j);
+  removeCssArrowFns(root, j);
 
   const errors = [...replaceThemeErrors, ...replaceClassNameErrors];
   if (errors.length > 0) {
@@ -482,4 +483,17 @@ function handleNamedAndDefaultExport(node, j) {
   }
 
   return { node, named };
+}
+
+function removeCssArrowFns(root, j) {
+  const assignedArrowFns = root
+    .find(j.VariableDeclaration)
+    .find(j.ArrowFunctionExpression, { body: { tag: { name: "css" } } });
+
+  assignedArrowFns.forEach((arrFn) => {
+    const exp = j(arrFn)
+      .find(j.TaggedTemplateExpression)
+      .get();
+    j(arrFn).replaceWith(exp.node);
+  });
 }
