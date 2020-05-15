@@ -279,6 +279,8 @@ function themeImportExists(root, j) {
     .filter((nodePath) => {
       const specifier = nodePath.value.specifiers[0];
 
+      if (!specifier) return false;
+
       if (
         specifier.local &&
         specifier.imported &&

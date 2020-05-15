@@ -58,3 +58,4 @@ defineTest(
 
 defineTest(__dirname, "emotion-to-linaria", null, "theme-fn-to-theme-obj");
 defineTest(__dirname, "emotion-to-linaria", null, "remove-css-arrow-fn");
+defineTest(__dirname, "emotion-to-linaria", null, "import-without-specifier");
