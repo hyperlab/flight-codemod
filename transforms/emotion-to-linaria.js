@@ -12,7 +12,13 @@ export default function transformer(file, api) {
   replaceStyledImport(root, j);
   removeCssArrowFns(root, j);
 
-  const errors = [...replaceThemeErrors, ...replaceClassNameErrors];
+  const withComponentErrors = warnWithComponent(root, j);
+
+  const errors = [
+    ...replaceThemeErrors,
+    ...replaceClassNameErrors,
+    ...withComponentErrors,
+  ];
   if (errors.length > 0) {
     errors.map((err) => {
       console.warn(
@@ -24,6 +30,23 @@ export default function transformer(file, api) {
   }
 
   return root.toSource({});
+}
+
+function warnWithComponent(root, j) {
+  let errors = [];
+  const withComponentUsage = root.find(j.MemberExpression, {
+    property: { name: "withComponent" },
+  });
+  if (withComponentUsage.length > 0) {
+    const line = withComponentUsage.get().value.loc.start.line;
+
+    errors.push({
+      line,
+      msg: "withComponent is no longer supported",
+    });
+  }
+
+  return errors;
 }
 
 function replaceCssPropSimple(root, j) {
