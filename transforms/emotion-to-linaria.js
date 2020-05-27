@@ -323,7 +323,7 @@ function themeImportExists(root, j) {
 function getRelativeThemePath(path) {
   const targetPath = "/src/components/Theme";
   // Get the directory path to the file being processed, relative to /src/
-  const currentPath = ("/src/" + path.split("/src/")[1]).replace(
+  const currentPath = ("/src/" + path.split("src/")[1]).replace(
     /\/[^\/]+\.([^\/]+)+$/g,
     "/"
   );
