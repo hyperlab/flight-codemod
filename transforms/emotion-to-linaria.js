@@ -328,7 +328,7 @@ function getRelativeThemePath(path) {
     "/"
   );
 
-  let relativePath = nodePath.relative(currentPath, targetPath);
+  let relativePath = nodePath.posix.relative(currentPath, targetPath);
 
   if (relativePath === "Theme" || undefined) {
     relativePath = "./Theme";
