@@ -18,7 +18,7 @@ try {
   }
 
   const result = execa.commandSync(
-    `${jscodeshiftExecutable} -t ${transformsDir}/${selectedCodemod}.js ${directoryToApplyTo}`,
+    `node ${jscodeshiftExecutable} -t ${transformsDir}/${selectedCodemod}.js ${directoryToApplyTo}`,
     {
       stdio: "inherit",
       stripEof: false,
